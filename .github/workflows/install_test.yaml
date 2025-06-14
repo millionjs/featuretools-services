@@ -1,0 +1,46 @@
+name: Install Test
+on:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches:
+      - main
+env:
+  ALTERYX_OPEN_SRC_UPDATE_CHECKER: False
+jobs:
+  install_ft_complete:
+    name: ${{ matrix.os }} - ${{ matrix.python_version }} install featuretools complete
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python_version: ["3.9", "3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+      - name: Set up python ${{ matrix.python_version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+          cache: 'pip' 
+          cache-dependency-path: 'pyproject.toml'
+      - name: Build featuretools package
+        run: |
+          make package
+      - name: Install complete version of featuretools from sdist
+        run: |
+          python -m pip install "unpacked_sdist/[complete]"
+      - name: Test by importing packages
+        run: |
+          python -c "import premium_primitives"
+          python -c "from nlp_primitives import PolarityScore"
+      - name: Check package conflicts
+        run: |
+          python -m pip check
+      - name: Verify extra_requires commands
+        run: |
+          python -m pip install "unpacked_sdist/[nlp]"
